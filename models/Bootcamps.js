@@ -120,6 +120,15 @@ BootcampSchema.pre('save', function(next) {
     next();
 });
 
+// // Cascade delete course when a bootcamp is deleted
+
+BootcampSchema.pre('remove', async function (next) {
+  const Course = this.model('Course'); 
+  console.log(`Courses being removed from bootcamp ${this._id}`);
+  await Course.deleteMany({ bootcamp: this._id });
+  next();
+});
+
 // Reverse populate with virtuals
 BootcampSchema.virtual('courses',{
   ref: 'Course',
@@ -127,5 +136,6 @@ BootcampSchema.virtual('courses',{
   foreignField: 'bootcamp',
   justOne: false
 });
+
 
 module.exports = mongoose.model('Bootcamp', BootcampSchema);

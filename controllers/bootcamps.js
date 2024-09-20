@@ -2,6 +2,7 @@ const { query } = require("express");
 const asyncHandler = require("../Middleware/async");
 const Bootcamp = require("../models/Bootcamps");
 const ErrorResponse = require("../utils/errorRespoonce");
+const Course = require('../models/Course');
 
 
 // @desc   Get all bootcamps
@@ -137,7 +138,7 @@ exports.updateBootcamp = asyncHandler(async (req, res, next) => {
 // @access Private
 
 exports.deleteBootcamp = asyncHandler(async (req, res, next) => {
-  const bootcamp = await Bootcamp.findByIdAndDelete(req.params.id);
+  const bootcamp = await Bootcamp.findById(req.params.id);
 
   if (!bootcamp) {
     return next(
@@ -145,11 +146,18 @@ exports.deleteBootcamp = asyncHandler(async (req, res, next) => {
     );
   }
 
+  // Manually delete associated courses before deleting the bootcamp
+  await Course.deleteMany({ bootcamp: bootcamp._id });
+
+  // Delete the bootcamp
+  await bootcamp.deleteOne();
+
   res.status(200).json({ success: true, data: {} });
 });
 
+
 // @desc   Get bootcamp by city
-// @route  DELETE /api/v1/bootcamps/:city
+// @route /api/v1/bootcamps/:city
 // @access Private
 
 exports.getBootcampByCity = asyncHandler(async (req, res, next) => {
