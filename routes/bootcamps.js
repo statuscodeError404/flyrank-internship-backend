@@ -5,7 +5,8 @@ const {
   createBootcamp,
   updateBootcamp,
   deleteBootcamp,
-  getBootcampByCity
+  getBootcampByCity,
+  bootcampPhotoUpload
 } = require("../controllers/bootcamps");
 const router = express.Router();
 
@@ -21,6 +22,8 @@ router
 .get(getBootcamp)
 .put(updateBootcamp)
 .delete(deleteBootcamp);
+
+router.route('/:id/photo').put(bootcampPhotoUpload);
 
 router
 .route('/get-by-city/:city')

@@ -2,8 +2,10 @@ const express = require('express');
 const dotenv = require('dotenv');
 const morgan = require('morgan');
 const colors = require('colors');
+const fileUpload = require('express-fileupload');
 const connectDB = require('./config/db');
 const errorHandler = require('./Middleware/error');
+const path = require('path');
 
 
 
@@ -32,6 +34,13 @@ app.use(morgan('dev'));
 if(process.env.NODE_ENV === 'development') {
     app.use(morgan('dev'));
 }
+
+
+// File uploading
+app.use(fileUpload());
+
+// Set static folder
+app.use(express.static(path.join(__dirname, 'pulbic')));
 
 
 // Mount routers
