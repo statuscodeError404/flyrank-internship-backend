@@ -10,12 +10,18 @@ const {
 } = require("../controllers/bootcamps");
 const router = express.Router();
 
+const Bootcamp = require("../models/Bootcamps");
+
+const advancedResults = require('../Middleware/advancedResults');
+
+
 
 
 router
-.route('/')
-.get(getBootcamps)
+.route('/')         
+.get(advancedResults(Bootcamp, 'courses'), getBootcamps)
 .post(createBootcamp);
+
 
 router
 .route('/:id')
