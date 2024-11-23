@@ -6,17 +6,24 @@ const { getCourses, getCourse, addCourse, uppdateCourse, deleteCourse } = requir
 
 const router = express.Router({ margeParams: true });
 
-const { protect } = require('../Middleware/auth');
+const { protect, authorize } = require('../Middleware/auth');
 
 router.route('/').get(advancedResults(Course, {
     path: 'bootcamp',
     select: 'name description'
 }),  getCourses);
-router.route('/:id').get(getCourse).put(protect, uppdateCourse).delete(protect, deleteCourse);
+
+router
+.route('/:id')
+.get(getCourse)
+.put(protect, authorize('publisher', 'admin'), uppdateCourse)
+.delete(protect, authorize('publisher', 'admin'), deleteCourse);
 
 
 
-router.route('/:bootcampId/courses').post(protect, addCourse);
+router
+.route('/:bootcampId/courses')
+.post(protect, authorize('publisher', 'admin'), addCourse);
 
 
 
