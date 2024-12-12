@@ -18,8 +18,6 @@ const advancedResults = require('../Middleware/advancedResults');
 const { protect, authorize } = require('../Middleware/auth');
 
 
-
-
 router
 .route('/')         
 .get(advancedResults(Bootcamp, 'courses'), getBootcamps)

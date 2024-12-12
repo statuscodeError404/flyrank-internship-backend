@@ -2,7 +2,8 @@ const express = require("express");
 const advancedResults = require('../Middleware/advancedResults');
 const Course = require("../models/Course");
 
-const { getCourses, getCourse, addCourse, uppdateCourse, deleteCourse } = require("../controllers/courses");
+
+const { getCourses, getCourse, addCourse, uppdateCourse, deleteCourse, getCoursesByBootcampId  } = require("../controllers/courses");
 
 const router = express.Router({ margeParams: true });
 
@@ -12,6 +13,9 @@ router.route('/').get(advancedResults(Course, {
     path: 'bootcamp',
     select: 'name description'
 }),  getCourses);
+
+// Route to get courses by bootcamp ID
+router.route('/:bootcampId/courses').get(getCoursesByBootcampId);
 
 router
 .route('/:id')
