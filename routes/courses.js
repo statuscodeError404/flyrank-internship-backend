@@ -23,8 +23,6 @@ router
 .put(protect, authorize('publisher', 'admin'), uppdateCourse)
 .delete(protect, authorize('publisher', 'admin'), deleteCourse);
 
-
-
 router
 .route('/:bootcampId/courses')
 .post(protect, authorize('publisher', 'admin'), addCourse);

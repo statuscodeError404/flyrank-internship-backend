@@ -10,7 +10,6 @@ const ErrorResponse = require("../utils/errorRespoonce");
 // @route  GET /api/v1/courses
 // @route  GET /api/v1/bootcamp/:bootcampId/courses
 // @access Public
-
 exports.getCourses = asyncHandler(async (req, res, next) => {
     console.log('Params bootcampId:', req.params.bootcampId);
 
@@ -30,11 +29,11 @@ exports.getCourses = asyncHandler(async (req, res, next) => {
 
 });
 
+
 // @desc   Get single courses
 // @route  GET /api/v1/courses/:id
 // @route  GET /api/v1/bootcamp/:bootcampId/courses
 // @access Public
-
 exports.getCourse = asyncHandler(async (req, res, next) => {
     const course = await Course.findById(req.params.id).populate({
         path: 'bootcamp',
@@ -51,42 +50,35 @@ exports.getCourse = asyncHandler(async (req, res, next) => {
     });
 });
 
-// Controller to get courses by bootcamp ID
-exports.getCoursesByBootcampId = async (req, res, next) => {
-    try {
-      const { bootcampId } = req.params;
-  
-      // Check if bootcamp exists
-      const bootcamp = await Bootcamp.findById(bootcampId);
-      if (!bootcamp) {
-        return res.status(404).json({
+
+// @desc   Get Course with BootcampId
+// @route  GET /api/v1/courses/:bootcampId/courses
+// @access Public
+exports.getCoursesByBootcampId = asyncHandler(async (req, res, next) => {
+    const { bootcampId } = req.params;
+    
+    // Get courses associated with BootcampId
+    const courses = await Course.find({ bootcamp: bootcampId });
+
+    // Return 404 if course is not found with bootcampId
+    if (courses.length === 0) {
+        res.status(200).json({
           success: false,
-          message: `Bootcamp not found with id of ${bootcampId}`,
-        });
-      }
-  
-      // Get courses associated with the bootcamp
-      const courses = await Course.find({ bootcamp: bootcampId });
-  
+          message: `No Course find with bootcamps id of ${bootcampId}`
+      });
+    } else {
       res.status(200).json({
         success: true,
         count: courses.length,
-        data: courses,
-      });
-    } catch (err) {
-      console.error(err);
-      res.status(500).json({
-        success: false,
-        message: 'Server error',
-      });
-    }
-  };
+        data: courses
+    });
+  }
+});
+
 
 // @desc   Add course
 // @route  POST /api/v1/bootcamps/:bootcampId/courses
 // @access Private
-
-
 exports.addCourse = asyncHandler(async (req, res, next) => {
     // Attach bootcamp ID to request body
     req.body.bootcamp = req.params.bootcampId;
@@ -123,8 +115,6 @@ exports.addCourse = asyncHandler(async (req, res, next) => {
 // @desc   Update course
 // @route  PUT /api/v1/courses/:id
 // @access Private
-
-
 exports.uppdateCourse = asyncHandler(async (req, res, next) => {
 
     let course = await Course.findById(req.params.id);
@@ -158,8 +148,6 @@ exports.uppdateCourse = asyncHandler(async (req, res, next) => {
 // @desc   Delete course
 // @route  DELETE /api/v1/courses/:id
 // @access Private
-
-
 exports.deleteCourse = asyncHandler(async (req, res, next) => {
     const course = await Course.findById(req.params.id);
 
