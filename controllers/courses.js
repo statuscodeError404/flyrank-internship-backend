@@ -84,7 +84,6 @@ exports.addCourse = asyncHandler(async (req, res, next) => {
     req.body.bootcamp = req.params.bootcampId;
     req.body.user = req.user.id;
 
-
     // Look for the bootcamp by ID
     const bootcamp = await Bootcamp.findById(req.params.bootcampId);
 
