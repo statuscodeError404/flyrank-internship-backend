@@ -1,6 +1,7 @@
 const ErrorResponse = require('../utils/errorRespoonce');
 const asyncHandler = require('../Middleware/async');
 const User = require('../models/User');
+const sendEmail = require('../utils/sendEmail');
 
 
 // @desc   Register user
@@ -87,25 +88,55 @@ const sendTokenResponse = (user, statusCode, res) => {
 }
 
 
-// @desc   Forgot password
-// @route  POST /api/v1/auth/forgotpassword
-// @access Public
+// // @desc   Forgot password
+// // @route  POST /api/v1/auth/forgotpassword
+// // @access Public
 exports.forgotPassword = asyncHandler(async (req, res, next) => {
     const user = await User.findOne({ email: req.body.email });
 
-    if(!user) {
+    if (!user) {
         return next(new ErrorResponse('There is no user with that specific email', 404));
     }
 
     // Get reset token
     const resetToken = user.getResetPasswordToken();
 
-    await user.save({ validateBeforeSave: false});
-
-    res.status(200).json({
-        success: true,
-        data: user
+    // Update user without validation
+    await User.findByIdAndUpdate(user.id, {
+        resetPasswordToken: user.resetPasswordToken,
+        resetPasswordExpire: user.resetPasswordExpire
+    }, {
+        new: true,
+        runValidators: false
     });
+
+    // Create reset URL
+    const resetUrl = `${req.protocol}://${req.get('host')}/api/v1/resetpassword/${resetToken}`;
+
+    const message = `You are receiving this email because you (or someone else) has requested the reset of a password.\n\n Please make a PUT request to: \n\n ${resetUrl}`;
+
+    try {
+        await sendEmail({
+            email: user.email,
+            subject: 'Password reset token',
+            message
+        });
+
+        res.status(200).json({ success: true, data: 'Email sent' });
+    } catch (error) {
+        console.error(error);
+
+        // Clear token and expiration on failure
+        await User.findByIdAndUpdate(user.id, {
+            resetPasswordToken: undefined,
+            resetPasswordExpire: undefined
+        }, {
+            new: true,
+            runValidators: false
+        });
+
+        return next(new ErrorResponse('Email could not be sent', 500));
+    }
 });
 
 

@@ -70,8 +70,6 @@ UserSchema.methods.getResetPasswordToken = function() {
    // Generate token
    const resetToken = crypto.randomBytes(20).toString('hex');
 
-   console.log(typeof resetToken);
-
   //Hash token and set to resetPasswordToken fileds
   this.resetPasswordToken = crypto
   .createHash('sha256')
