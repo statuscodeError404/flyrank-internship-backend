@@ -24,6 +24,31 @@ exports.getReviews = asyncHandler(async (req, res, next) => {
 });
 
 
+// @desc   Get Reviews with BootcampId
+// @route  GET /api/v1/reviews/:bootcampId/reviews
+// @access Public
+exports.getReviewsByBootcampId = asyncHandler(async (req, res, next) => {
+    const { bootcampId } = req.params;
+    
+    // Get Reviews associated with BootcampId
+    const reviews = await Review.find({ bootcamp: bootcampId });
+
+    // Return 404 if reviews are not found with bootcampId
+    if (reviews.length === 0) {
+        res.status(200).json({
+          success: false,
+          message: `No reviews for this bootcamp ${bootcampId}`
+      });
+    } else {
+      res.status(200).json({
+        success: true,
+        count: reviews.length,
+        data: reviews
+    });
+  }
+});
+
+
    
 
 
