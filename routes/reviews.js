@@ -1,7 +1,8 @@
 const express = require('express');
 const {
     getReviews,
-    getReviewsByBootcampId
+    getReviewsByBootcampId,
+    getReview
 } = require('../controllers/reviews');
 
 const Review = require('../models/Review');
@@ -20,6 +21,8 @@ router
     path: 'bootcamp',
     select: 'name description'
 }), getReviews);
+
+router.route('/:id').get(getReview);
 
 
 module.exports = router;
