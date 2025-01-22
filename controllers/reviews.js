@@ -50,7 +50,7 @@ exports.getReviewsByBootcampId = asyncHandler(async (req, res, next) => {
 
 
 // @desc   Get single Review
-// @route  GET /api/v1/reviews?:id
+// @route  GET /api/v1/reviews:id
 // @access Public
 exports.getReview = asyncHandler(async (req, res, next) => {
   const review = await Review.findById(req.params.id).populate({ 
@@ -63,6 +63,30 @@ exports.getReview = asyncHandler(async (req, res, next) => {
   }
 
   res.status(200).json({ success: true, data: review});
+
+});
+
+
+// @desc   Add reviews
+// @route  POST /api/v1/bootcamps/:bootcampsid/reviews
+// @access Private
+exports.addReview = asyncHandler(async (req, res, next) => {
+  
+      req.body.bootcamp = req.params.bootcampsid;
+      req.body.user = req.user.id;
+
+      const bootcamp = await Bootcamp.findById(req.params.bootcampsid);
+
+      if(!bootcamp) {
+        return next(new ErrorResponse(`No bootcamp with the id of ${req.params.bootcampId}`, 404));
+      }
+
+      const review = await Review.create(req.body);
+
+      res.status(201).json({
+        success: true,
+        data: review
+      });
 
 });
 
