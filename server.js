@@ -7,6 +7,7 @@ const cookieParser = require('cookie-parser');
 const connectDB = require('./config/db');
 const errorHandler = require('./Middleware/error');
 const path = require('path');
+const MongoSanitize = require('express-mongo-sanitize');
 
 
 
@@ -22,7 +23,8 @@ const bootcamps = require('./routes/bootcamps')
 const courses = require('./routes/courses')
 const auth = require('./routes/auth')
 const users = require('./routes/users')
-const reviews = require('./routes/reviews')
+const reviews = require('./routes/reviews');
+const ExpressMongoSanitize = require('express-mongo-sanitize');
 
 
 
@@ -47,6 +49,9 @@ if(process.env.NODE_ENV === 'development') {
 
 // File uploading
 app.use(fileUpload());
+
+// Sanatize data
+app.use(MongoSanitize());
 
 // Set static folder
 app.use(express.static(path.join(__dirname, 'pulbic')));
