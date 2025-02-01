@@ -1,13 +1,22 @@
-const express = require('express');
+const hpp = require('hpp');
+const path = require('path');
+const cors = require('cors');
 const dotenv = require('dotenv');
 const morgan = require('morgan');
 const colors = require('colors');
-const fileUpload = require('express-fileupload');
-const cookieParser = require('cookie-parser');
+const helmet = require('helmet');
+const xss = require('xss-clean');
+const express = require('express');
 const connectDB = require('./config/db');
+const cookieParser = require('cookie-parser');
+const rateLimit = require('express-rate-limit');
+const fileUpload = require('express-fileupload');
 const errorHandler = require('./Middleware/error');
-const path = require('path');
 const MongoSanitize = require('express-mongo-sanitize');
+
+
+
+
 
 
 
@@ -52,6 +61,25 @@ app.use(fileUpload());
 
 // Sanatize data
 app.use(MongoSanitize());
+
+// Set security headers
+app.use(helmet());
+
+// Prevent XSS attacks
+app.use(xss());
+
+// Rate Limiting
+const limiter = rateLimit({
+    windowMs: 10 * 60 * 1000, // 10 min
+    max: 100
+});
+app.use(limiter);
+
+// Prevent http param pollution
+app.use(hpp());
+
+// Enable CORS
+app.use(cors());
 
 // Set static folder
 app.use(express.static(path.join(__dirname, 'pulbic')));
