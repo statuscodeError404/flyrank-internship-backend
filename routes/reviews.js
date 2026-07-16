@@ -1,33 +1,28 @@
 const express = require('express');
 const {
-    getReviews,
-    getReviewsByBootcampId,
-    getReview,
-    addReview,
-    updateReview,
-    deleteReview
+  getReviews,
+  getReviewsByBootcampId,
+  getReview,
+  addReview,
+  updateReview,
+  deleteReview,
 } = require('../controllers/reviews');
-
-const Review = require('../models/Review');
-
-const router = express.Router({ mergeParams: true });
 
 const advancedResults = require('../Middleware/advancedResults');
 const { protect, authorize } = require('../Middleware/auth');
+const { prisma } = require('../config/db');
 
-// Route to get courses by bootcamp ID
+const router = express.Router({ mergeParams: true });
+
 router.route('/:bootcampId/reviews').get(getReviewsByBootcampId);
-
-// Route to get reviews by bootcamp ID
 router.route('/:bootcampsid/reviews').post(protect, authorize('user', 'admin'), addReview);
 
-
 router
-.route('/')
-.get(advancedResults(Review, {
-    path: 'bootcamp',
-    select: 'name description'
-}), getReviews);
+  .route('/')
+  .get(
+    advancedResults(prisma.review, { bootcamp: { select: { name: true, description: true } } }),
+    getReviews
+  );
 
 router
   .route('/:id')
@@ -35,8 +30,4 @@ router
   .put(protect, authorize('user', 'admin'), updateReview)
   .delete(protect, authorize('user', 'admin'), deleteReview);
 
-
 module.exports = router;
-
-
-

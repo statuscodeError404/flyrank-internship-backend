@@ -1,10 +1,8 @@
-const { query } = require("express");
-const asyncHandler = require("../Middleware/async");
-const Bootcamp = require("../models/Bootcamps");
-const ErrorResponse = require("../utils/errorRespoonce");
-const Course = require('../models/Course');
-const fileUpload = require('express-fileupload');
 const path = require('path');
+const slugify = require('slugify').default || require('slugify');
+const asyncHandler = require('../Middleware/async');
+const ErrorResponse = require('../utils/errorRespoonce');
+const { prisma } = require('../config/db');
 
 
 // @desc   Get all bootcamps
@@ -15,20 +13,21 @@ exports.getBootcamps = asyncHandler(async (req, res, next) => {
 });
 
 
-// @desc   Get single bootcamps
+// @desc   Get single bootcamp
 // @route  GET /api/v1/bootcamps/:id
 // @access Public
 exports.getBootcamp = asyncHandler(async (req, res, next) => {
-  const bootcamp = await Bootcamp.findById(req.params.id);
+  const bootcamp = await prisma.bootcamp.findUnique({
+    where: { id: req.params.id },
+    include: { courses: true },
+  });
 
   if (!bootcamp) {
-    // Return 404 if the bootcamp is not found
     return next(
       new ErrorResponse(`Bootcamp not found with id of ${req.params.id}`, 404)
     );
   }
 
-  // Respond with the bootcamp data if found
   res.status(200).json({ success: true, data: bootcamp });
 });
 
@@ -37,13 +36,10 @@ exports.getBootcamp = asyncHandler(async (req, res, next) => {
 // @route  POST /api/v1/bootcamps
 // @access Private
 exports.createBootcamp = asyncHandler(async (req, res, next) => {
-  // Add user to req.body
-  req.body.user = req.user.id;
+  const publishedBootcamp = await prisma.bootcamp.findFirst({
+    where: { userId: req.user.id },
+  });
 
-  // Check for published bootcamp
-  const publishedBootcamp = await Bootcamp.findOne({ user: req.user.id });
-
-  // If the user is not an admin, they can only add one bootcamp
   if (publishedBootcamp && req.user.role !== 'admin') {
     return next(
       new ErrorResponse(
@@ -53,13 +49,14 @@ exports.createBootcamp = asyncHandler(async (req, res, next) => {
     );
   }
 
-  // Create the bootcamp
-  const bootcamp = await Bootcamp.create(req.body);
+  const { user, _id, ...data } = req.body;
 
-  res.status(201).json({
-    success: true,
-    data: bootcamp,
-  });
+  data.userId = req.user.id;
+  data.slug = slugify(data.name, { lower: true });
+
+  const bootcamp = await prisma.bootcamp.create({ data });
+
+  res.status(201).json({ success: true, data: bootcamp });
 });
 
 
@@ -67,7 +64,9 @@ exports.createBootcamp = asyncHandler(async (req, res, next) => {
 // @route  PUT /api/v1/bootcamps/:id
 // @access Private
 exports.updateBootcamp = asyncHandler(async (req, res, next) => {
-  let bootcamp = await Bootcamp.findById(req.params.id);
+  const bootcamp = await prisma.bootcamp.findUnique({
+    where: { id: req.params.id },
+  });
 
   if (!bootcamp) {
     return next(
@@ -75,41 +74,7 @@ exports.updateBootcamp = asyncHandler(async (req, res, next) => {
     );
   }
 
-  // Make sure user is bootcamp owner
-  if(bootcamp.user.toString() !== req.user.id && req.user.role !== 'admin') {
-    return next(
-      new ErrorResponse(`User ${req.params.id} is not authorized to update this bootcamp `, 401)
-    );
-
-  }
-
-   // Update bootcamp
-   bootcamp = await Bootcamp.findOneAndUpdate(
-    { _id: req.params.id },
-    req.body,
-    {
-      new: true,
-      runValidators: true,
-    }
-  );
-
-  res.status(200).json({ success: true, data: bootcamp });
-});
-
-
-// @desc   Delete bootcamp
-// @route  DELETE /api/v1/bootcamps/:id
-// @access Private
-exports.deleteBootcamp = asyncHandler(async (req, res, next) => {
-  const bootcamp = await Bootcamp.findById(req.params.id);
-
-  if (!bootcamp) {
-    return next(
-      new ErrorResponse(`Bootcamp not found with id of ${req.params.id}`, 404)
-    );
-  }
-
-  if (bootcamp.user.toString() !== req.user.id && req.user.role !== 'admin') {
+  if (bootcamp.userId !== req.user.id && req.user.role !== 'admin') {
     return next(
       new ErrorResponse(
         `User ${req.user.id} is not authorized to update this bootcamp`,
@@ -118,39 +83,28 @@ exports.deleteBootcamp = asyncHandler(async (req, res, next) => {
     );
   }
 
-  // Manually delete associated courses before deleting the bootcamp
-  await Course.deleteMany({ bootcamp: bootcamp._id });
+  const { user, userId, id, ...data } = req.body;
 
-  // Delete the bootcamp
-  await bootcamp.deleteOne();
-
-  res.status(200).json({ success: true, data: {} });
-});
-
-
-// @desc   Get bootcamp by city
-// @route /api/v1/bootcamps/:city
-// @access Private
-exports.getBootcampByCity = asyncHandler(async (req, res, next) => {
-  const city = req.params.city;
-
-  const bootcamp = await Bootcamp.find({ address: city });
-
-  if (!bootcamp) {
-    return next(
-      new ErrorResponse(`Bootcamp not found with city of ${city}`, 404)
-    );
+  if (data.name) {
+    data.slug = slugify(data.name, { lower: true });
   }
 
-  res.status(200).json({ success: true, data: bootcamp });
+  const updated = await prisma.bootcamp.update({
+    where: { id: req.params.id },
+    data,
+  });
+
+  res.status(200).json({ success: true, data: updated });
 });
 
 
-// @desc   Upload photo for bootcamp
-// @route  PUT /api/v1/bootcamps/:id/photo
+// @desc   Delete bootcamp
+// @route  DELETE /api/v1/bootcamps/:id
 // @access Private
-exports.bootcampPhotoUpload = asyncHandler(async (req, res, next) => {
-  const bootcamp = await Bootcamp.findById(req.params.id);
+exports.deleteBootcamp = asyncHandler(async (req, res, next) => {
+  const bootcamp = await prisma.bootcamp.findUnique({
+    where: { id: req.params.id },
+  });
 
   if (!bootcamp) {
     return next(
@@ -158,12 +112,57 @@ exports.bootcampPhotoUpload = asyncHandler(async (req, res, next) => {
     );
   }
 
-  // Make sure user is bootcamp owner
-  if(bootcamp.user.toString() !== req.user.id && req.user.role !== 'admin') {
+  if (bootcamp.userId !== req.user.id && req.user.role !== 'admin') {
     return next(
-      new ErrorResponse(`User ${req.params.id} is not authorized to update this bootcamp `, 401)
+      new ErrorResponse(
+        `User ${req.user.id} is not authorized to delete this bootcamp`,
+        401
+      )
     );
+  }
 
+  // Cascade delete is handled by the DB (onDelete: Cascade on Course and Review)
+  await prisma.bootcamp.delete({ where: { id: req.params.id } });
+
+  res.status(200).json({ success: true, data: {} });
+});
+
+
+// @desc   Get bootcamps by city
+// @route  GET /api/v1/bootcamps/get-by-city/:city
+// @access Public
+exports.getBootcampByCity = asyncHandler(async (req, res, next) => {
+  const city = req.params.city;
+
+  const bootcamps = await prisma.bootcamp.findMany({
+    where: { city: { contains: city, mode: 'insensitive' } },
+  });
+
+  res.status(200).json({ success: true, count: bootcamps.length, data: bootcamps });
+});
+
+
+// @desc   Upload photo for bootcamp
+// @route  PUT /api/v1/bootcamps/:id/photo
+// @access Private
+exports.bootcampPhotoUpload = asyncHandler(async (req, res, next) => {
+  const bootcamp = await prisma.bootcamp.findUnique({
+    where: { id: req.params.id },
+  });
+
+  if (!bootcamp) {
+    return next(
+      new ErrorResponse(`Bootcamp not found with id of ${req.params.id}`, 404)
+    );
+  }
+
+  if (bootcamp.userId !== req.user.id && req.user.role !== 'admin') {
+    return next(
+      new ErrorResponse(
+        `User ${req.user.id} is not authorized to update this bootcamp`,
+        401
+      )
+    );
   }
 
   if (!req.files) {
@@ -172,35 +171,33 @@ exports.bootcampPhotoUpload = asyncHandler(async (req, res, next) => {
 
   const file = req.files.file;
 
-  // Make sure the file is an image
   if (!file.mimetype.startsWith('image')) {
     return next(new ErrorResponse('Please upload an image file', 400));
   }
 
-  // Check filesize
   const maxFileSize = parseInt(process.env.MAX_FILE_UPLOAD, 10);
   if (file.size > maxFileSize) {
     return next(
-      new ErrorResponse(`Please upload an image less than ${process.env.MAX_FILE_UPLOAD}`, 400)
+      new ErrorResponse(
+        `Please upload an image less than ${process.env.MAX_FILE_UPLOAD}`,
+        400
+      )
     );
   }
 
-  // Create custom filename
-  file.name = `photo_${bootcamp._id}${path.extname(file.name)}`;
+  file.name = `photo_${bootcamp.id}${path.extname(file.name)}`;
 
-  // Move the file
   file.mv(`${process.env.FILE_UPLOAD_PATH}/${file.name}`, async (err) => {
     if (err) {
       console.error(err);
       return next(new ErrorResponse('Problem with file upload', 500));
     }
 
-    // Update bootcamp photo field in DB
-    await Bootcamp.findByIdAndUpdate(req.params.id, { photo: file.name });
-
-    res.status(200).json({
-      success: true,
-      data: file.name,
+    await prisma.bootcamp.update({
+      where: { id: req.params.id },
+      data: { photo: file.name },
     });
+
+    res.status(200).json({ success: true, data: file.name });
   });
 });

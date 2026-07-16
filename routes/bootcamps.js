@@ -1,5 +1,4 @@
-
-const express = require("express");
+const express = require('express');
 const {
   getBootcamps,
   getBootcamp,
@@ -7,33 +6,30 @@ const {
   updateBootcamp,
   deleteBootcamp,
   getBootcampByCity,
-  bootcampPhotoUpload
-} = require("../controllers/bootcamps");
-const router = express.Router();
-
-const Bootcamp = require("../models/Bootcamps");
+  bootcampPhotoUpload,
+} = require('../controllers/bootcamps');
 
 const advancedResults = require('../Middleware/advancedResults');
-
 const { protect, authorize } = require('../Middleware/auth');
+const { prisma } = require('../config/db');
 
-
-router
-.route('/')         
-.get(advancedResults(Bootcamp, 'courses'), getBootcamps)
-.post(protect, authorize('publisher', 'admin'), createBootcamp);
-
+const router = express.Router();
 
 router
-.route('/:id')
-.get(getBootcamp)
-.put(protect, authorize('publisher', 'admin'), updateBootcamp)
-.delete(protect, authorize('publisher', 'admin'), deleteBootcamp);
+  .route('/')
+  .get(advancedResults(prisma.bootcamp, { courses: true }), getBootcamps)
+  .post(protect, authorize('publisher', 'admin'), createBootcamp);
 
-router.route('/:id/photo').put(protect, authorize('publisher', 'admin'), bootcampPhotoUpload);
+router.route('/get-by-city/:city').get(getBootcampByCity);
 
 router
-.route('/get-by-city/:city')
-.get(getBootcampByCity)
+  .route('/:id')
+  .get(getBootcamp)
+  .put(protect, authorize('publisher', 'admin'), updateBootcamp)
+  .delete(protect, authorize('publisher', 'admin'), deleteBootcamp);
+
+router
+  .route('/:id/photo')
+  .put(protect, authorize('publisher', 'admin'), bootcampPhotoUpload);
 
 module.exports = router;

@@ -1,0 +1,977 @@
+openapi: 3.0.0
+info:
+  title: DevCamper API
+  version: 1.0.0
+  description: Backend API for the DevCamper bootcamp directory application. Manage bootcamps, courses, reviews, and users.
+
+servers:
+  - url: http://localhost:5000/api/v1
+    description: Development server
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    Bootcamp:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          example: Devworks Bootcamp
+        slug:
+          type: string
+          example: devworks-bootcamp
+        description:
+          type: string
+        website:
+          type: string
+          format: uri
+        phone:
+          type: string
+          example: "(111) 111-1111"
+        email:
+          type: string
+          format: email
+        address:
+          type: string
+        city:
+          type: string
+        state:
+          type: string
+        zipcode:
+          type: string
+        country:
+          type: string
+        careers:
+          type: array
+          items:
+            type: string
+          example: [Web Development, UI/UX]
+        averageRating:
+          type: number
+        averageCost:
+          type: number
+        photo:
+          type: string
+        housing:
+          type: boolean
+        jobAssistance:
+          type: boolean
+        jobGuarantee:
+          type: boolean
+        acceptGi:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        userId:
+          type: string
+          format: uuid
+
+    Course:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+          example: Full Stack Web Development
+        description:
+          type: string
+        weeks:
+          type: string
+          example: "8"
+        tuition:
+          type: number
+          example: 8000
+        minimumSkill:
+          type: string
+          enum: [beginner, intermediate, advanced]
+        scholarshipAvailable:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        bootcampId:
+          type: string
+          format: uuid
+        userId:
+          type: string
+          format: uuid
+
+    Review:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+          example: Learned a ton!
+        text:
+          type: string
+        rating:
+          type: integer
+          minimum: 1
+          maximum: 10
+        createdAt:
+          type: string
+          format: date-time
+        bootcampId:
+          type: string
+          format: uuid
+        userId:
+          type: string
+          format: uuid
+
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          example: John Doe
+        email:
+          type: string
+          format: email
+        role:
+          type: string
+          enum: [user, publisher, admin]
+        createdAt:
+          type: string
+          format: date-time
+
+    Error:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: false
+        error:
+          type: string
+          example: Resource not found
+
+# ─── AUTH ─────────────────────────────────────────────────────────────────────
+paths:
+  /auth/register:
+    post:
+      tags: [Auth]
+      summary: Register a new user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, email, password, role]
+              properties:
+                name:
+                  type: string
+                  example: John Doe
+                email:
+                  type: string
+                  format: email
+                  example: john@example.com
+                password:
+                  type: string
+                  example: Secret@123
+                role:
+                  type: string
+                  enum: [user, publisher]
+      responses:
+        "200":
+          description: User registered, token returned
+        "400":
+          description: Validation error
+
+  /auth/login:
+    post:
+      tags: [Auth]
+      summary: Login and receive a JWT token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email:
+                  type: string
+                  format: email
+                  example: john@devcamper.io
+                password:
+                  type: string
+                  example: Publisher@1234
+      responses:
+        "200":
+          description: Login successful, returns JWT token
+        "401":
+          description: Invalid credentials
+
+  /auth/logout:
+    get:
+      tags: [Auth]
+      summary: Logout and clear cookie
+      responses:
+        "200":
+          description: Logged out successfully
+
+  /auth/me:
+    get:
+      tags: [Auth]
+      summary: Get currently logged in user
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Current user data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        "401":
+          description: Not authorized
+
+  /auth/forgotPassword:
+    post:
+      tags: [Auth]
+      summary: Send password reset email
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email]
+              properties:
+                email:
+                  type: string
+                  format: email
+      responses:
+        "200":
+          description: Reset email sent
+        "404":
+          description: User not found
+
+  /auth/resetPassword/{resettoken}:
+    put:
+      tags: [Auth]
+      summary: Reset password using token
+      parameters:
+        - in: path
+          name: resettoken
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [password]
+              properties:
+                password:
+                  type: string
+      responses:
+        "200":
+          description: Password reset successful
+        "400":
+          description: Invalid or expired token
+
+  /auth/updateDetails:
+    put:
+      tags: [Auth]
+      summary: Update logged in user name and email
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                email:
+                  type: string
+                  format: email
+      responses:
+        "200":
+          description: Details updated
+        "401":
+          description: Not authorized
+
+  /auth/updatePassword:
+    put:
+      tags: [Auth]
+      summary: Update logged in user password
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [currentPassword, newPassword]
+              properties:
+                currentPassword:
+                  type: string
+                newPassword:
+                  type: string
+      responses:
+        "200":
+          description: Password updated
+        "401":
+          description: Not authorized or wrong password
+
+# ─── BOOTCAMPS ────────────────────────────────────────────────────────────────
+  /bootcamps:
+    get:
+      tags: [Bootcamps]
+      summary: Get all bootcamps
+      parameters:
+        - in: query
+          name: page
+          schema:
+            type: integer
+            default: 1
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 25
+        - in: query
+          name: sort
+          schema:
+            type: string
+          description: e.g. -createdAt for descending
+        - in: query
+          name: select
+          schema:
+            type: string
+          description: Comma-separated fields to return
+      responses:
+        "200":
+          description: List of bootcamps
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  count:
+                    type: integer
+                  total:
+                    type: integer
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Bootcamp'
+    post:
+      tags: [Bootcamps]
+      summary: Create a new bootcamp
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, description, email, address, careers]
+              properties:
+                name:
+                  type: string
+                  example: My Bootcamp
+                description:
+                  type: string
+                website:
+                  type: string
+                phone:
+                  type: string
+                email:
+                  type: string
+                  format: email
+                address:
+                  type: string
+                careers:
+                  type: array
+                  items:
+                    type: string
+                housing:
+                  type: boolean
+                jobAssistance:
+                  type: boolean
+                jobGuarantee:
+                  type: boolean
+                acceptGi:
+                  type: boolean
+      responses:
+        "201":
+          description: Bootcamp created
+        "400":
+          description: Bad request
+        "401":
+          description: Unauthorized
+
+  /bootcamps/get-by-city/{city}:
+    get:
+      tags: [Bootcamps]
+      summary: Get bootcamps by city
+      parameters:
+        - in: path
+          name: city
+          required: true
+          schema:
+            type: string
+          example: Boston
+      responses:
+        "200":
+          description: Bootcamps in the given city
+
+  /bootcamps/{id}:
+    get:
+      tags: [Bootcamps]
+      summary: Get a single bootcamp
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Bootcamp data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Bootcamp'
+        "404":
+          description: Bootcamp not found
+    put:
+      tags: [Bootcamps]
+      summary: Update a bootcamp
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Bootcamp'
+      responses:
+        "200":
+          description: Updated bootcamp
+        "401":
+          description: Unauthorized
+        "404":
+          description: Not found
+    delete:
+      tags: [Bootcamps]
+      summary: Delete a bootcamp
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Bootcamp deleted
+        "401":
+          description: Unauthorized
+        "404":
+          description: Not found
+
+  /bootcamps/{id}/photo:
+    put:
+      tags: [Bootcamps]
+      summary: Upload photo for bootcamp
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+      responses:
+        "200":
+          description: Photo uploaded
+        "400":
+          description: Bad request
+        "401":
+          description: Unauthorized
+
+# ─── COURSES ──────────────────────────────────────────────────────────────────
+  /courses:
+    get:
+      tags: [Courses]
+      summary: Get all courses
+      parameters:
+        - in: query
+          name: page
+          schema:
+            type: integer
+            default: 1
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 25
+        - in: query
+          name: sort
+          schema:
+            type: string
+        - in: query
+          name: select
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of courses
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  count:
+                    type: integer
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Course'
+
+  /courses/{bootcampId}/courses:
+    get:
+      tags: [Courses]
+      summary: Get all courses for a specific bootcamp
+      parameters:
+        - in: path
+          name: bootcampId
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Courses for the bootcamp
+    post:
+      tags: [Courses]
+      summary: Add a course to a bootcamp
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: bootcampId
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [title, description, weeks, tuition, minimumSkill]
+              properties:
+                title:
+                  type: string
+                description:
+                  type: string
+                weeks:
+                  type: string
+                  example: "8"
+                tuition:
+                  type: number
+                  example: 8000
+                minimumSkill:
+                  type: string
+                  enum: [beginner, intermediate, advanced]
+                scholarshipAvailable:
+                  type: boolean
+      responses:
+        "201":
+          description: Course created
+        "401":
+          description: Unauthorized
+
+  /courses/{id}:
+    get:
+      tags: [Courses]
+      summary: Get a single course
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Course data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Course'
+        "404":
+          description: Course not found
+    put:
+      tags: [Courses]
+      summary: Update a course
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Course'
+      responses:
+        "200":
+          description: Updated course
+        "401":
+          description: Unauthorized
+        "404":
+          description: Not found
+    delete:
+      tags: [Courses]
+      summary: Delete a course
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Course deleted
+        "401":
+          description: Unauthorized
+        "404":
+          description: Not found
+
+# ─── REVIEWS ──────────────────────────────────────────────────────────────────
+  /reviews:
+    get:
+      tags: [Reviews]
+      summary: Get all reviews
+      parameters:
+        - in: query
+          name: page
+          schema:
+            type: integer
+            default: 1
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 25
+      responses:
+        "200":
+          description: List of reviews
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  count:
+                    type: integer
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Review'
+
+  /reviews/{bootcampId}/reviews:
+    get:
+      tags: [Reviews]
+      summary: Get all reviews for a bootcamp
+      parameters:
+        - in: path
+          name: bootcampId
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Reviews for the bootcamp
+    post:
+      tags: [Reviews]
+      summary: Add a review for a bootcamp
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: bootcampId
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [title, text, rating]
+              properties:
+                title:
+                  type: string
+                  example: Great bootcamp!
+                text:
+                  type: string
+                rating:
+                  type: integer
+                  minimum: 1
+                  maximum: 10
+      responses:
+        "201":
+          description: Review created
+        "401":
+          description: Unauthorized
+
+  /reviews/{id}:
+    get:
+      tags: [Reviews]
+      summary: Get a single review
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Review data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Review'
+        "404":
+          description: Review not found
+    put:
+      tags: [Reviews]
+      summary: Update a review
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                title:
+                  type: string
+                text:
+                  type: string
+                rating:
+                  type: integer
+                  minimum: 1
+                  maximum: 10
+      responses:
+        "200":
+          description: Updated review
+        "401":
+          description: Unauthorized
+    delete:
+      tags: [Reviews]
+      summary: Delete a review
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Review deleted
+        "401":
+          description: Unauthorized
+
+# ─── USERS ────────────────────────────────────────────────────────────────────
+  /users:
+    get:
+      tags: [Users]
+      summary: Get all users (Admin only)
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: page
+          schema:
+            type: integer
+            default: 1
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 25
+      responses:
+        "200":
+          description: List of users
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  count:
+                    type: integer
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/User'
+        "401":
+          description: Not authorized
+    post:
+      tags: [Users]
+      summary: Create a user (Admin only)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, email, password, role]
+              properties:
+                name:
+                  type: string
+                email:
+                  type: string
+                  format: email
+                password:
+                  type: string
+                role:
+                  type: string
+                  enum: [user, publisher, admin]
+      responses:
+        "201":
+          description: User created
+        "401":
+          description: Not authorized
+
+  /users/{id}:
+    get:
+      tags: [Users]
+      summary: Get a single user (Admin only)
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: User data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        "404":
+          description: User not found
+    put:
+      tags: [Users]
+      summary: Update a user (Admin only)
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/User'
+      responses:
+        "200":
+          description: Updated user
+        "401":
+          description: Not authorized
+    delete:
+      tags: [Users]
+      summary: Delete a user (Admin only)
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: User deleted
+        "401":
+          description: Not authorized

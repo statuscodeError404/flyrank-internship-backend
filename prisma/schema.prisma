@@ -1,0 +1,81 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                  String    @id @default(uuid())
+  name                String
+  email               String    @unique
+  role                String    @default("user")
+  password            String
+  resetPasswordToken  String?
+  resetPasswordExpire DateTime?
+  createdAt           DateTime  @default(now())
+  bootcamps           Bootcamp[]
+  courses             Course[]
+  reviews             Review[]
+}
+
+model Bootcamp {
+  id               String   @id @default(uuid())
+  name             String   @unique
+  slug             String?
+  description      String
+  website          String?
+  phone            String?
+  email            String   @unique
+  address          String
+  formattedAddress String?
+  street           String?
+  city             String?
+  state            String?
+  zipcode          String?
+  country          String?
+  careers          String[]
+  averageRating    Float?
+  averageCost      Float?
+  photo            String   @default("no-photo.jpg")
+  housing          Boolean  @default(false)
+  jobAssistance    Boolean  @default(false)
+  jobGuarantee     Boolean  @default(false)
+  acceptGi         Boolean  @default(false)
+  createdAt        DateTime @default(now())
+  userId           String
+  user             User     @relation(fields: [userId], references: [id])
+  courses          Course[]
+  reviews          Review[]
+}
+
+model Course {
+  id                   String   @id @default(uuid())
+  title                String
+  description          String
+  weeks                String
+  tuition              Float
+  minimumSkill         String
+  scholarshipAvailable Boolean  @default(false)
+  createdAt            DateTime @default(now())
+  bootcampId           String
+  bootcamp             Bootcamp @relation(fields: [bootcampId], references: [id], onDelete: Cascade)
+  userId               String
+  user                 User     @relation(fields: [userId], references: [id])
+}
+
+model Review {
+  id         String   @id @default(uuid())
+  title      String
+  text       String
+  rating     Int
+  createdAt  DateTime @default(now())
+  bootcampId String
+  bootcamp   Bootcamp @relation(fields: [bootcampId], references: [id], onDelete: Cascade)
+  userId     String
+  user       User     @relation(fields: [userId], references: [id])
+
+  @@unique([bootcampId, userId])
+}

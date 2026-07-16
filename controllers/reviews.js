@@ -1,93 +1,108 @@
-const asyncHandler = require("../Middleware/async");
-const Review = require("../models/Review");
-const ErrorResponse = require("../utils/errorRespoonce");
-const Bootcamp = require('../models/Bootcamps');
+const asyncHandler = require('../Middleware/async');
+const ErrorResponse = require('../utils/errorRespoonce');
+const { prisma } = require('../config/db');
 
 
-// @desc   Get Reviews
+const updateAverageRating = async (bootcampId) => {
+  const result = await prisma.review.aggregate({
+    where: { bootcampId },
+    _avg: { rating: true },
+  });
+  await prisma.bootcamp.update({
+    where: { id: bootcampId },
+    data: { averageRating: result._avg.rating },
+  });
+};
+
+
+// @desc   Get all reviews (or reviews for a bootcamp)
 // @route  GET /api/v1/reviews
-// @route  GET /api/v1/bootcamp/:bootcampId/reviews
+// @route  GET /api/v1/bootcamps/:bootcampId/reviews
 // @access Public
 exports.getReviews = asyncHandler(async (req, res, next) => {
-    if (req.params.bootcampId) {
-        const reviews = await Review.find({ bootcamp: req.params.bootcampId });
-    
-        return res.status(200).json({
-            success: true,
-            count: reviews.length,
-            data: reviews
-        });
-    } else {
-        res.status(200).json(res.advancedResults);
-    }
+  if (req.params.bootcampId) {
+    const reviews = await prisma.review.findMany({
+      where: { bootcampId: req.params.bootcampId },
+    });
 
+    return res.status(200).json({
+      success: true,
+      count: reviews.length,
+      data: reviews,
+    });
+  } else {
+    res.status(200).json(res.advancedResults);
+  }
 });
 
 
-// @desc   Get Reviews with BootcampId
+// @desc   Get reviews by bootcamp ID
 // @route  GET /api/v1/reviews/:bootcampId/reviews
 // @access Public
 exports.getReviewsByBootcampId = asyncHandler(async (req, res, next) => {
-    const { bootcampId } = req.params;
-    
-    // Get Reviews associated with BootcampId
-    const reviews = await Review.find({ bootcamp: bootcampId });
+  const { bootcampId } = req.params;
 
-    // Return 404 if reviews are not found with bootcampId
-    if (reviews.length === 0) {
-        res.status(200).json({
-          success: false,
-          message: `No reviews for this bootcamp ${bootcampId}`
-      });
-    } else {
-      res.status(200).json({
-        success: true,
-        count: reviews.length,
-        data: reviews
+  const reviews = await prisma.review.findMany({ where: { bootcampId } });
+
+  if (reviews.length === 0) {
+    return res.status(200).json({
+      success: false,
+      message: `No reviews for bootcamp ${bootcampId}`,
     });
   }
+
+  res.status(200).json({ success: true, count: reviews.length, data: reviews });
 });
 
 
-// @desc   Get single Review
-// @route  GET /api/v1/reviews:id
+// @desc   Get single review
+// @route  GET /api/v1/reviews/:id
 // @access Public
 exports.getReview = asyncHandler(async (req, res, next) => {
-  const review = await Review.findById(req.params.id).populate({ 
-    path: 'bootcamp',
-    selcet: 'name description'
+  const review = await prisma.review.findUnique({
+    where: { id: req.params.id },
+    include: {
+      bootcamp: { select: { name: true, description: true } },
+    },
   });
 
-  if(!review) {
-    return next(new ErrorResponse(`No review found with id of ${req.params.id}`,404));
+  if (!review) {
+    return next(
+      new ErrorResponse(`No review found with id of ${req.params.id}`, 404)
+    );
   }
 
-  res.status(200).json({ success: true, data: review});
-
+  res.status(200).json({ success: true, data: review });
 });
 
 
-// @desc   Add reviews
+// @desc   Add review
 // @route  POST /api/v1/bootcamps/:bootcampsid/reviews
 // @access Private
 exports.addReview = asyncHandler(async (req, res, next) => {
-  
-      req.body.bootcamp = req.params.bootcampsid;
-      req.body.user = req.user.id;
+  const bootcamp = await prisma.bootcamp.findUnique({
+    where: { id: req.params.bootcampsid },
+  });
 
-      const bootcamp = await Bootcamp.findById(req.params.bootcampsid);
+  if (!bootcamp) {
+    return next(
+      new ErrorResponse(
+        `No bootcamp with the id of ${req.params.bootcampsid}`,
+        404
+      )
+    );
+  }
 
-      if(!bootcamp) {
-        return next(new ErrorResponse(`No bootcamp with the id of ${req.params.bootcampId}`, 404));
-      }
+  const { _id, user, bootcamp: _b, ...data } = req.body;
 
-      const review = await Review.create(req.body);
+  data.bootcampId = req.params.bootcampsid;
+  data.userId = req.user.id;
 
-      res.status(201).json({
-        success: true,
-        data: review
-      });
+  const review = await prisma.review.create({ data });
 
+  await updateAverageRating(req.params.bootcampsid);
+
+  res.status(201).json({ success: true, data: review });
 });
 
 
@@ -95,29 +110,28 @@ exports.addReview = asyncHandler(async (req, res, next) => {
 // @route  PUT /api/v1/reviews/:id
 // @access Private
 exports.updateReview = asyncHandler(async (req, res, next) => {
-  let review = await Review.findById(req.params.id);
+  const review = await prisma.review.findUnique({ where: { id: req.params.id } });
 
-  if(!review) {
+  if (!review) {
     return next(
-      new ErrorResponse(`No review found with id of ${req.params.id}`, 404));
+      new ErrorResponse(`No review found with id of ${req.params.id}`, 404)
+    );
   }
 
-  // Make sure review belongs to user or user is admin
-  if(review.user.toString() !== req.user.id && req.user.role !== 'admin') {
-    return next(
-      new ErrorResponse(`Not authorized to update review`, 401));
+  if (review.userId !== req.user.id && req.user.role !== 'admin') {
+    return next(new ErrorResponse('Not authorized to update review', 401));
   }
 
-    review = await Review.findByIdAndUpdate(req.params.id, req.body, {
-    new: true,
-    runValidators: true
+  const { _id, userId, bootcampId, ...data } = req.body;
+
+  const updated = await prisma.review.update({
+    where: { id: req.params.id },
+    data,
   });
 
-  res.status(200).json({
-    success: true,
-    data: review
-  });
+  await updateAverageRating(review.bootcampId);
 
+  res.status(200).json({ success: true, data: updated });
 });
 
 
@@ -125,31 +139,21 @@ exports.updateReview = asyncHandler(async (req, res, next) => {
 // @route  DELETE /api/v1/reviews/:id
 // @access Private
 exports.deleteReview = asyncHandler(async (req, res, next) => {
-  const review = await Review.findById(req.params.id);
+  const review = await prisma.review.findUnique({ where: { id: req.params.id } });
 
-  if(!review) {
+  if (!review) {
     return next(
-      new ErrorResponse(`No review found with id of ${req.params.id}`, 404));
+      new ErrorResponse(`No review found with id of ${req.params.id}`, 404)
+    );
   }
 
-   // Make sure review belongs to user or user is admin
-   if(review.user.toString() !== req.user.id && req.user.role !== 'admin') {
-    return next(
-      new ErrorResponse(`Not authorized to update review`, 401));
+  if (review.userId !== req.user.id && req.user.role !== 'admin') {
+    return next(new ErrorResponse('Not authorized to delete review', 401));
   }
 
-  await Review.findByIdAndDelete(req.params.id);
+  await prisma.review.delete({ where: { id: req.params.id } });
 
-  res.status(200).json({
-    success: true,
-    data: {}
-  })
+  await updateAverageRating(review.bootcampId);
 
+  res.status(200).json({ success: true, data: {} });
 });
-
-
-   
-
-
-
-

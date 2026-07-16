@@ -1,37 +1,35 @@
-
-const ErrorResponse = require("../utils/errorRespoonce");
+const ErrorResponse = require('../utils/errorRespoonce');
 
 const errorHandler = (err, req, res, next) => {
-    let error = { ... err }
+  let error = { ...err };
+  error.message = err.message;
 
-    error.message = err.message
+  console.log(err);
 
-    //Log to console for dev
-    console.log(err);
+  // Prisma: Record not found
+  if (err.code === 'P2025') {
+    error = new ErrorResponse('Resource not found', 404);
+  }
 
-    //Mongoose bad ObjectId
-    if(err.name === 'CastError') {
-        const message = `Resource not found`;
-        error = new ErrorResponse(message, 404);
-    }
+  // Prisma: Unique constraint violation
+  if (err.code === 'P2002') {
+    error = new ErrorResponse('Duplicate field value entered', 400);
+  }
 
-    // Mongoose duplicate key
-    if(err.code === 11000) {
-        const message = 'Duplicate field value entered';
-        error = new ErrorResponse(message, 400);
-    }
+  // Prisma: Foreign key constraint violation
+  if (err.code === 'P2003') {
+    error = new ErrorResponse('Related resource not found', 404);
+  }
 
-    // Mongoose valuedation error
-    if (err.name === 'ValidationError') {
-        const message = Object.values(err.errors).map(val => val.message);
-        error = new ErrorResponse(message, 400);
+  // Invalid UUID format
+  if (err.message && err.message.includes('invalid input syntax for type uuid')) {
+    error = new ErrorResponse('Resource not found', 404);
+  }
 
-    }
-
-    res.status(error.statusCode || 500).json({
-        success: false,
-        error: error.message || 'Server Error'
-    });
+  res.status(error.statusCode || 500).json({
+    success: false,
+    error: error.message || 'Server Error',
+  });
 };
 
 module.exports = errorHandler;

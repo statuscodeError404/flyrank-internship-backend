@@ -1,22 +1,11 @@
 const fs = require('fs');
-const mongoose = require('mongoose');
-const colors = require('colors');
+const bcrypt = require('bcryptjs');
+const { PrismaClient } = require('@prisma/client');
 const dotenv = require('dotenv');
 
-// Load env vars
-dotenv.config({ path: './config/config.env' });
+dotenv.config();
 
-// Load models
-const Bootcamp = require('./models/Bootcamps');
-const Course = require('./models/Course');
-const User = require('./models/User');
-const Review = require('./models/Review');
-
-
-
-
-// Connect to DB
-mongoose.connect(process.env.MONGO_URI);            // UPITNO 
+const prisma = new PrismaClient();
 
 // Read JSON files
 const bootcamps = JSON.parse(fs.readFileSync(`${__dirname}/_data/bootcamps.json`, 'utf-8'));
@@ -24,41 +13,56 @@ const courses = JSON.parse(fs.readFileSync(`${__dirname}/_data/courses.json`, 'u
 const users = JSON.parse(fs.readFileSync(`${__dirname}/_data/users.json`, 'utf-8'));
 const reviews = JSON.parse(fs.readFileSync(`${__dirname}/_data/reviews.json`, 'utf-8'));
 
-
-
-// Inport in to DB
-const InportData = async () => {
+// Import data into DB
+const importData = async () => {
     try {
-        await Bootcamp.create(bootcamps);
-        await Course.create(courses);
-        await User.create(users);
-        await Review.create(reviews);
+        // Hash passwords before inserting
+        const hashedUsers = await Promise.all(
+            users.map(async (user) => {
+                const salt = await bcrypt.genSalt(10);
+                const password = await bcrypt.hash(user.password, salt);
+                return { ...user, password };
+            })
+        );
 
+        await prisma.user.createMany({ data: hashedUsers });
+        await prisma.bootcamp.createMany({ data: bootcamps });
+        await prisma.course.createMany({ data: courses });
+        await prisma.review.createMany({ data: reviews });
 
-        console.log('Data Inported...'.green.inverse);
+        console.log('Data imported...');
         process.exit();
     } catch (err) {
         console.error(err);
+        process.exit(1);
+    } finally {
+        await prisma.$disconnect();
     }
 };
 
-// Delete data
+// Delete data from DB
 const deleteData = async () => {
     try {
-        await Bootcamp.deleteMany();
-        await Course.deleteMany();
-        await User.deleteMany();
-        await Review.deleteMany();
+        await prisma.review.deleteMany();
+        await prisma.course.deleteMany();
+        await prisma.bootcamp.deleteMany();
+        await prisma.user.deleteMany();
 
-        console.log('Data Destroyed...'.red.inverse);
+        console.log('Data destroyed...');
         process.exit();
     } catch (err) {
         console.error(err);
+        process.exit(1);
+    } finally {
+        await prisma.$disconnect();
     }
 };
 
-if(process.argv[2] === '-i') {
-    InportData();
+if (process.argv[2] === '-i') {
+    importData();
 } else if (process.argv[2] === '-d') {
     deleteData();
-};
+} else {
+    console.log('Use -i to import or -d to delete data');
+    process.exit();
+}

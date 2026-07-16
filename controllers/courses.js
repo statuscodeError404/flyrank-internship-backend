@@ -1,78 +1,80 @@
-const { query } = require("express");
-const asyncHandler = require("../Middleware/async");
-const Course = require("../models/Course");
-const Bootcamp = require("../models/Bootcamps");
-const ErrorResponse = require("../utils/errorRespoonce");
+const asyncHandler = require('../Middleware/async');
+const ErrorResponse = require('../utils/errorRespoonce');
+const { prisma } = require('../config/db');
 
 
+const updateAverageCost = async (bootcampId) => {
+  const result = await prisma.course.aggregate({
+    where: { bootcampId },
+    _avg: { tuition: true },
+  });
+  const averageCost = result._avg.tuition
+    ? Math.ceil(result._avg.tuition / 10) * 10
+    : null;
+  await prisma.bootcamp.update({
+    where: { id: bootcampId },
+    data: { averageCost },
+  });
+};
 
-// @desc   Get Courses
+
+// @desc   Get all courses (or courses for a bootcamp)
 // @route  GET /api/v1/courses
-// @route  GET /api/v1/bootcamp/:bootcampId/courses
+// @route  GET /api/v1/bootcamps/:bootcampId/courses
 // @access Public
 exports.getCourses = asyncHandler(async (req, res, next) => {
-    console.log('Params bootcampId:', req.params.bootcampId);
+  if (req.params.bootcampId || req.query.bootcampId) {
+    const bootcampId = req.params.bootcampId || req.query.bootcampId;
+    const courses = await prisma.course.findMany({ where: { bootcampId } });
 
-
-    if (req.params.bootcampId || req.query.bootcampId) {
-        const bootcampId = req.params.bootcampId || req.query.bootcampId;
-        const courses = await Course.find({ bootcamp: bootcampId });
-
-        return res.status(200).json({
-            success: true,
-            count: courses.length,
-            data: courses
-        })
-    } else {
-       res.status(200).json(res.advancedResults);
-    }
-
+    return res.status(200).json({
+      success: true,
+      count: courses.length,
+      data: courses,
+    });
+  } else {
+    res.status(200).json(res.advancedResults);
+  }
 });
 
 
-// @desc   Get single courses
+// @desc   Get single course
 // @route  GET /api/v1/courses/:id
-// @route  GET /api/v1/bootcamp/:bootcampId/courses
 // @access Public
 exports.getCourse = asyncHandler(async (req, res, next) => {
-    const course = await Course.findById(req.params.id).populate({
-        path: 'bootcamp',
-        select: 'name description'
-    });
+  const course = await prisma.course.findUnique({
+    where: { id: req.params.id },
+    include: {
+      bootcamp: { select: { name: true, description: true } },
+    },
+  });
 
-    if(!course) {
-        return next(new ErrorResponse(`No course with id of ${req.params.id}`), 404);
-    }
+  if (!course) {
+    return next(
+      new ErrorResponse(`No course with id of ${req.params.id}`, 404)
+    );
+  }
 
-    res.status(200).json({
-        success: true,
-        data: course
-    });
+  res.status(200).json({ success: true, data: course });
 });
 
 
-// @desc   Get Course with BootcampId
+// @desc   Get courses by bootcamp ID
 // @route  GET /api/v1/courses/:bootcampId/courses
 // @access Public
 exports.getCoursesByBootcampId = asyncHandler(async (req, res, next) => {
-    const { bootcampId } = req.params;
-    
-    // Get courses associated with BootcampId
-    const courses = await Course.find({ bootcamp: bootcampId });
+  const { bootcampId } = req.params;
 
-    // Return 404 if course is not found with bootcampId
-    if (courses.length === 0) {
-        res.status(200).json({
-          success: false,
-          message: `No Course find with bootcamps id of ${bootcampId}`
-      });
-    } else {
-      res.status(200).json({
-        success: true,
-        count: courses.length,
-        data: courses
+  const courses = await prisma.course.findMany({ where: { bootcampId } });
+
+  if (courses.length === 0) {
+    return res.status(200).json({
+      success: false,
+      message: `No courses found for bootcamp id of ${bootcampId}`,
     });
   }
+
+  res.status(200).json({ success: true, count: courses.length, data: courses });
 });
 
 
@@ -80,34 +82,35 @@ exports.getCoursesByBootcampId = asyncHandler(async (req, res, next) => {
 // @route  POST /api/v1/bootcamps/:bootcampId/courses
 // @access Private
 exports.addCourse = asyncHandler(async (req, res, next) => {
-    // Attach bootcamp ID to request body
-    req.body.bootcamp = req.params.bootcampId;
-    req.body.user = req.user.id;
+  const bootcamp = await prisma.bootcamp.findUnique({
+    where: { id: req.params.bootcampId },
+  });
 
-    // Look for the bootcamp by ID
-    const bootcamp = await Bootcamp.findById(req.params.bootcampId);
+  if (!bootcamp) {
+    return next(
+      new ErrorResponse(`No bootcamp with id of ${req.params.bootcampId}`, 404)
+    );
+  }
 
-    // If bootcamp doesn't exist, return an error
-    if (!bootcamp) {
-        return next(new ErrorResponse(`No bootcamp with id of ${req.params.bootcampId}`, 404));
-    }
+  if (bootcamp.userId !== req.user.id && req.user.role !== 'admin') {
+    return next(
+      new ErrorResponse(
+        `User ${req.user.id} is not authorized to add a course to bootcamp ${bootcamp.id}`,
+        401
+      )
+    );
+  }
 
-    // Make sure user is bootcamp owner
-    if(bootcamp.user.toString() !== req.user.id && req.user.role !== 'admin') {
-        return next(
-          new ErrorResponse(`User ${req.user.id} is not authorized to add a course to this bootcamp ${bootcamp._id} `, 401)
-        );
-    
-      };
+  const { _id, user, bootcamp: _b, ...data } = req.body;
 
-    // Create the new course
-    const course = await Course.create(req.body);
+  data.bootcampId = req.params.bootcampId;
+  data.userId = req.user.id;
 
-    // Respond with success and the created course
-    res.status(200).json({
-        success: true,
-        data: course
-    });
+  const course = await prisma.course.create({ data });
+
+  await updateAverageCost(req.params.bootcampId);
+
+  res.status(200).json({ success: true, data: course });
 });
 
 
@@ -115,32 +118,33 @@ exports.addCourse = asyncHandler(async (req, res, next) => {
 // @route  PUT /api/v1/courses/:id
 // @access Private
 exports.uppdateCourse = asyncHandler(async (req, res, next) => {
+  const course = await prisma.course.findUnique({ where: { id: req.params.id } });
 
-    let course = await Course.findById(req.params.id);
+  if (!course) {
+    return next(
+      new ErrorResponse(`No course with id of ${req.params.id}`, 404)
+    );
+  }
 
-    // If bootcamp doesn't exist, return an error
-    if (!course) {
-        return next(new ErrorResponse(`No course with id of ${req.params.course}`, 404));
-    }
+  if (course.userId !== req.user.id && req.user.role !== 'admin') {
+    return next(
+      new ErrorResponse(
+        `User ${req.user.id} is not authorized to update course ${course.id}`,
+        401
+      )
+    );
+  }
 
-    // Make sure user is course owner
-    if(course.user.toString() !== req.user.id && req.user.role !== 'admin') {
-        return next(
-          new ErrorResponse(`User ${req.user.id} is not authorized to uprate course ${course._id} `, 401)
-        );
-    
-      };
+  const { _id, userId, bootcampId, ...data } = req.body;
 
-    course = await Course.findByIdAndUpdate(req.params.id, req.body, {
-        new: true,
-        runValidators: true
-    });
+  const updated = await prisma.course.update({
+    where: { id: req.params.id },
+    data,
+  });
 
-    // Respond with success and the created course
-    res.status(200).json({
-        success: true,
-        data: course
-    });
+  await updateAverageCost(course.bootcampId);
+
+  res.status(200).json({ success: true, data: updated });
 });
 
 
@@ -148,29 +152,26 @@ exports.uppdateCourse = asyncHandler(async (req, res, next) => {
 // @route  DELETE /api/v1/courses/:id
 // @access Private
 exports.deleteCourse = asyncHandler(async (req, res, next) => {
-    const course = await Course.findById(req.params.id);
+  const course = await prisma.course.findUnique({ where: { id: req.params.id } });
 
-    // If course doesn't exist, return an error
-    if (!course) {
-        return next(new ErrorResponse(`No course with id of ${req.params.id}`, 404));
-    }
+  if (!course) {
+    return next(
+      new ErrorResponse(`No course with id of ${req.params.id}`, 404)
+    );
+  }
 
-     // Make sure user is course owner
-     if(course.user.toString() !== req.user.id && req.user.role !== 'admin') {
-        return next(
-          new ErrorResponse(`User ${req.user.id} is not authorized to delete course ${course._id} `, 401)
-        );
-    
-      };
+  if (course.userId !== req.user.id && req.user.role !== 'admin') {
+    return next(
+      new ErrorResponse(
+        `User ${req.user.id} is not authorized to delete course ${course.id}`,
+        401
+      )
+    );
+  }
 
-    await Course.deleteOne({ _id: req.params.id });
+  await prisma.course.delete({ where: { id: req.params.id } });
 
-    // Respond with success and the deleted course
-    res.status(200).json({
-        success: true,
-        data: {}
-    });
+  await updateAverageCost(course.bootcampId);
+
+  res.status(200).json({ success: true, data: {} });
 });
-
-
-

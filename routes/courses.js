@@ -1,32 +1,36 @@
-const express = require("express");
+const express = require('express');
+const {
+  getCourses,
+  getCourse,
+  addCourse,
+  uppdateCourse,
+  deleteCourse,
+  getCoursesByBootcampId,
+} = require('../controllers/courses');
+
 const advancedResults = require('../Middleware/advancedResults');
-const Course = require("../models/Course");
-
-
-const { getCourses, getCourse, addCourse, uppdateCourse, deleteCourse, getCoursesByBootcampId  } = require("../controllers/courses");
-
-const router = express.Router({ margeParams: true });
-
 const { protect, authorize } = require('../Middleware/auth');
+const { prisma } = require('../config/db');
 
-router.route('/').get(advancedResults(Course, {
-    path: 'bootcamp',
-    select: 'name description'
-}),  getCourses);
+const router = express.Router({ mergeParams: true });
 
-// Route to get courses by bootcamp ID
+router
+  .route('/')
+  .get(
+    advancedResults(prisma.course, { bootcamp: { select: { name: true, description: true } } }),
+    getCourses
+  );
+
 router.route('/:bootcampId/courses').get(getCoursesByBootcampId);
 
 router
-.route('/:id')
-.get(getCourse)
-.put(protect, authorize('publisher', 'admin'), uppdateCourse)
-.delete(protect, authorize('publisher', 'admin'), deleteCourse);
+  .route('/:bootcampId/courses')
+  .post(protect, authorize('publisher', 'admin'), addCourse);
 
 router
-.route('/:bootcampId/courses')
-.post(protect, authorize('publisher', 'admin'), addCourse);
-
-
+  .route('/:id')
+  .get(getCourse)
+  .put(protect, authorize('publisher', 'admin'), uppdateCourse)
+  .delete(protect, authorize('publisher', 'admin'), deleteCourse);
 
 module.exports = router;
