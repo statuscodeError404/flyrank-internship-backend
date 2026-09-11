@@ -1,0 +1,55 @@
+[
+  {
+    "name": "Strongly positive",
+    "reviews": [
+      { "title": "Life-changing", "text": "Best decision I ever made. Got a job in 6 weeks.", "rating": 10 },
+      { "title": "Amazing curriculum", "text": "The projects were super relevant and instructors were patient.", "rating": 9 },
+      { "title": "Highly recommend", "text": "Went from zero coding knowledge to full-stack developer in 12 weeks.", "rating": 9 },
+      { "title": "Worth every penny", "text": "Career services were excellent. They helped me prep for every interview.", "rating": 10 },
+      { "title": "Great experience", "text": "Supportive community and challenging but rewarding coursework.", "rating": 8 }
+    ],
+    "expected_sentiment": "positive"
+  },
+  {
+    "name": "Mixed reviews",
+    "reviews": [
+      { "title": "Decent but overpriced", "text": "Good content but not worth 15k. You can find most of this online.", "rating": 5 },
+      { "title": "Hit or miss instructors", "text": "Some teachers were great, others read off slides.", "rating": 6 },
+      { "title": "Loved the projects", "text": "Hands-on work was fantastic but lectures were boring.", "rating": 7 },
+      { "title": "Career support lacking", "text": "They promised job placement but the career team was unresponsive after graduation.", "rating": 4 },
+      { "title": "Not bad overall", "text": "I learned a lot but the pace was inconsistent. Some weeks were too slow, others way too fast.", "rating": 6 }
+    ],
+    "expected_sentiment": "mixed"
+  },
+  {
+    "name": "Very few reviews (low confidence expected)",
+    "reviews": [
+      { "title": "It was okay", "text": "Nothing special, standard bootcamp.", "rating": 5 }
+    ],
+    "expected_sentiment": "mixed",
+    "expect_low_confidence": true
+  },
+  {
+    "name": "Contradictory reviews",
+    "reviews": [
+      { "title": "Absolutely terrible", "text": "Worst money I ever spent. Instructors didn't care. Material was years outdated.", "rating": 1 },
+      { "title": "Best bootcamp ever", "text": "Incredible experience. Instructors were world-class. Got my dream job.", "rating": 10 },
+      { "title": "Total waste of time", "text": "Dropped out halfway. Zero support, misleading marketing.", "rating": 2 },
+      { "title": "Transformed my career", "text": "Went from barista to senior dev in a year thanks to this program.", "rating": 10 },
+      { "title": "Scam", "text": "They take your money and ghost you. No career support.", "rating": 1 }
+    ],
+    "expected_sentiment": "mixed",
+    "expect_low_confidence": true
+  },
+  {
+    "name": "Long detailed reviews",
+    "reviews": [
+      { "title": "Comprehensive review after 6 months", "text": "I graduated 6 months ago and can now give a full picture. The curriculum covered HTML, CSS, JavaScript, React, Node.js, and PostgreSQL in depth. Each module had a capstone project that built on the previous one, so by the end you had a full portfolio. The instructors were very knowledgeable, especially in the backend modules. My only complaint is the frontend design section felt rushed — we barely touched responsive design and accessibility. Career services were decent: they reviewed my resume and did mock interviews, but I had to do most of the job hunting myself. Overall I went from zero experience to landing a junior developer role making 65k, so I consider it a good investment.", "rating": 8 },
+      { "title": "Honest take from a career switcher", "text": "As someone who spent 10 years in accounting before switching, this bootcamp gave me exactly what I needed: structured learning with real accountability. The cohort model meant I had classmates to study with and instructors who tracked my progress weekly. The curriculum was modern — we used React 18, Next.js, and Prisma, which are all things I see in actual job postings. Downsides: the cost is steep (I took out a loan), the pace in weeks 8-12 was brutal, and the data structures section felt like an afterthought. But I'm now working as a developer and couldn't be happier with the career change.", "rating": 9 },
+      { "title": "Good but not perfect", "text": "The teaching quality was high and the projects were practical. However, they oversell the job placement rate — it took me 4 months to find work, not the 'average 6 weeks' they advertise. The Slack community post-graduation was helpful though, lots of alumni sharing leads and doing code reviews. I'd recommend it if you go in with realistic expectations about the job search timeline.", "rating": 7 },
+      { "title": "Second bootcamp, best one", "text": "I actually attended another bootcamp before this one and dropped out because the quality was so poor. This was a completely different experience. The instructors actually work in the industry, the code reviews were thorough, and the final project gave me something real to show employers. My one criticism is that they don't cover testing enough — I had to learn Jest and testing patterns on my own for interviews.", "rating": 9 },
+      { "title": "Solid foundation", "text": "This bootcamp gave me a solid foundation in full-stack development. The pair programming exercises were invaluable for learning to collaborate. TAs were responsive and the evening office hours saved me multiple times when I was stuck. The only gap I noticed was DevOps — we never touched Docker, CI/CD, or deployment beyond Heroku. For the price, I expected a bit more coverage of production-grade tooling.", "rating": 7 }
+    ],
+    "expected_sentiment": "positive"
+  }
+]

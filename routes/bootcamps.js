@@ -8,6 +8,7 @@ const {
   getBootcampByCity,
   bootcampPhotoUpload,
 } = require('../controllers/bootcamps');
+const { summarizeBootcamp } = require('../controllers/summarize');
 
 const advancedResults = require('../Middleware/advancedResults');
 const { protect, authorize } = require('../Middleware/auth');
@@ -31,5 +32,7 @@ router
 router
   .route('/:id/photo')
   .put(protect, authorize('publisher', 'admin'), bootcampPhotoUpload);
+
+router.route('/:id/summarize').post(summarizeBootcamp);
 
 module.exports = router;

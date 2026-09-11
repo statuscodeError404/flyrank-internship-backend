@@ -152,6 +152,86 @@ http://localhost:5000/api-docs
 
 ---
 
+## AI Review Summarizer
+
+The headline feature of this platform: instead of reading 40+ reviews manually, call a single endpoint to get a structured, AI-generated summary of what reviewers actually think about a bootcamp.
+
+### Endpoint
+
+```
+POST /api/v1/bootcamps/:id/summarize
+```
+
+**Access:** Public
+
+### Example
+
+```bash
+curl -X POST http://localhost:5000/api/v1/bootcamps/22222222-2222-2222-2222-222222222004/summarize
+```
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "cached": false,
+  "data": {
+    "overall_sentiment": "mixed",
+    "top_pros": [
+      "Instructors are brilliant communicators",
+      "Curriculum is current",
+      "Landed junior dev role after graduation",
+      "Job guarantee worth the price",
+      "Capstone project gives something real"
+    ],
+    "top_cons": [
+      "Material felt outdated",
+      "Career services almost non-existent",
+      "Not recommended at this price point"
+    ],
+    "recommended_for": "Not enough data yet to make a reliable recommendation.",
+    "confidence": 0.3,
+    "review_count": 3
+  }
+}
+```
+
+### Caching
+
+Generated summaries are stored in the database and reused on subsequent requests. A new summary is only generated when the review count for that bootcamp has changed (i.e. a new review was added or one was deleted). You can force a fresh regeneration regardless of cache state by passing `?force=true`. When the AI kill switch is active (`LLM_ENABLED=false`), the endpoint serves the last cached summary if one exists, or returns `503` otherwise.
+
+### Query parameters
+
+| Parameter | Description |
+|---|---|
+| `force=true` | Bypass cache and regenerate the summary |
+
+### How it works
+
+1. Fetches all reviews for the bootcamp from the database
+2. Sends review text to an LLM (via OpenRouter) with a versioned prompt (`prompts/course-summary-v1.md`)
+3. Validates the response against a strict Zod schema (sentiment enum, pros/cons arrays, confidence 0-1)
+4. On validation failure, sends one repair call asking the model to fix its output
+5. If repair also fails, returns `422` and logs the failure to `logs/quarantine.jsonl`
+6. On success, caches the summary in the `BootcampSummary` table for instant reuse
+
+### Environment variables
+
+| Variable | Description |
+|---|---|
+| `LLM_BASE_URL` | LLM provider base URL (e.g. `https://openrouter.ai/api/v1`) |
+| `LLM_API_KEY` | API key for the LLM provider |
+| `LLM_MODEL` | Model identifier (e.g. `nvidia/nemotron-3.5-lightning:free`) |
+| `LLM_STUB` | Set to `true` to return a hard-coded stub response (no model call) |
+| `LLM_ENABLED` | Set to `false` to disable AI calls (serves cached summaries only) |
+
+### Cost estimate
+
+Using free-tier models on OpenRouter, the cost per summary is **$0.00**. With paid models like GPT-4o-mini, expect roughly $0.001-$0.005 per summary depending on the number of reviews.
+
+---
+
 ## Author
 
 **Mirza Omanovic** — [@ststuscodeError404](https://github.com/ststuscodeError404)

@@ -49,6 +49,7 @@ model Bootcamp {
   user             User     @relation(fields: [userId], references: [id])
   courses          Course[]
   reviews          Review[]
+  summary          BootcampSummary?
 }
 
 model Course {
@@ -78,4 +79,14 @@ model Review {
   user       User     @relation(fields: [userId], references: [id])
 
   @@unique([bootcampId, userId])
+}
+
+model BootcampSummary {
+  id                      String   @id @default(uuid())
+  bootcampId              String   @unique
+  bootcamp                Bootcamp @relation(fields: [bootcampId], references: [id], onDelete: Cascade)
+  summaryJson             Json
+  reviewCountAtGeneration Int
+  promptVersion           String
+  generatedAt             DateTime @default(now())
 }
